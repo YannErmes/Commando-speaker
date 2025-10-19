@@ -21,7 +21,7 @@ const Navigation = () => {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
             <Languages className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold text-foreground">LangLearn</span>
+            <span className="text-xl font-bold text-foreground">commando-speaker</span>
           </div>
           <div className="flex gap-1 items-center">
             {links.map((link) => {
