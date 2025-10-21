@@ -81,11 +81,11 @@ const ReaderPage: React.FC = () => {
   };
 
   const getGeminiMeaning = async (word: string) => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = data.settings?.geminiApiKey || "";
     if (!apiKey) {
       toast({
         title: "AI unavailable",
-        description: "Set VITE_GEMINI_API_KEY in your .env to enable AI definitions — falling back to Google.",
+        description: "Set your Gemini API key in Settings to enable AI definitions — falling back to Google.",
         variant: "destructive",
       });
       openGoogleSearch(word);

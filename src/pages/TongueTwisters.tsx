@@ -12,6 +12,32 @@ const TongueTwisters = () => {
   const { data, toggleTongueTwisterPracticed } = useAppData();
   const [selectedSound, setSelectedSound] = useState<string | null>(null);
   const [playbackRate, setPlaybackRate] = useState(0.9);
+  const [duration, setDuration] = useState(20);
+  const [countdownLeft, setCountdownLeft] = useState<number | null>(null);
+  const [countdownInterval, setCountdownInterval] = useState<NodeJS.Timeout | null>(null);
+
+  const startCountdown = () => {
+    if (countdownInterval) clearInterval(countdownInterval);
+    setCountdownLeft(duration);
+    const interval = setInterval(() => {
+      setCountdownLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    setCountdownInterval(interval);
+  };
+
+  const stopCountdown = () => {
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      setCountdownInterval(null);
+    }
+    setCountdownLeft(null);
+  };
 
   // Get unique sounds from all tongue twisters
   const allSounds = Array.from(
@@ -99,26 +125,58 @@ const TongueTwisters = () => {
             <div className="lg:col-span-3">
               <Card className="mb-6">
                 <CardHeader>
-                  <CardTitle>Playback Speed</CardTitle>
+                  <CardTitle>Practice Settings</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Speed: {playbackRate.toFixed(1)}x</span>
-                      <div className="flex gap-2">
-                        <Badge variant="outline">Slow</Badge>
-                        <Badge variant="outline">Normal</Badge>
-                        <Badge variant="outline">Fast</Badge>
+                  <div className="space-y-6">
+                    {/* Playback speed */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Speed: {playbackRate.toFixed(1)}x</span>
+                        <div className="flex gap-2">
+                          <Badge variant="outline">Slow</Badge>
+                          <Badge variant="outline">Normal</Badge>
+                          <Badge variant="outline">Fast</Badge>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[playbackRate]}
+                        onValueChange={(value) => setPlaybackRate(value[0])}
+                        min={0.5}
+                        max={1.5}
+                        step={0.1}
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    {/* Practice timer */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Practice Timer: {duration} seconds</span>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setDuration(10)}>10s</Button>
+                          <Button size="sm" variant="outline" onClick={() => setDuration(20)}>20s</Button>
+                          <Button size="sm" variant="outline" onClick={() => setDuration(30)}>30s</Button>
+                        </div>
+                      </div>
+                      <Slider
+                        value={[duration]}
+                        onValueChange={(value) => setDuration(value[0])}
+                        min={5}
+                        max={60}
+                        step={5}
+                        className="w-full"
+                      />
+                      <div className="flex items-center justify-between mt-2">
+                        {countdownLeft === null ? (
+                          <Button className="w-full" onClick={startCountdown}>Start {duration}s Practice</Button>
+                        ) : (
+                          <Button className="w-full" variant="secondary" onClick={stopCountdown}>
+                            {countdownLeft}s remaining - Stop
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <Slider
-                      value={[playbackRate]}
-                      onValueChange={(value) => setPlaybackRate(value[0])}
-                      min={0.5}
-                      max={1.5}
-                      step={0.1}
-                      className="w-full"
-                    />
                   </div>
                 </CardContent>
               </Card>

@@ -7,6 +7,21 @@ export interface SavedText {
   originalText: string;
 }
 
+export interface ExerciseSet {
+  id: string;
+  textId: string; // linked text
+  words: string[]; // target words/expressions
+  questions: Array<{ q: string; a?: string }>;
+  savedAt: string;
+}
+
+export interface WeeklyGoal {
+  id: string;
+  text: string;
+  completed?: boolean;
+  createdAt: string;
+}
+
 export interface VocabEntry {
   id: string;
   text: string;
@@ -45,9 +60,12 @@ export interface AppData {
   vocab: VocabEntry[];
   tongueTwisters: TongueTwister[];
   pdfPaths: PdfPath[];
+  exercises: ExerciseSet[];
+  goals: WeeklyGoal[];
   settings: {
     fontSize: number;
     theme: "light" | "dark" | "system";
+    geminiApiKey: string;
   };
 }
 
@@ -93,9 +111,12 @@ const getDefaultData = (): AppData => ({
   vocab: [],
   tongueTwisters: getDefaultTongueTwisters(),
   pdfPaths: [],
+  exercises: [],
+  goals: [],
   settings: {
     fontSize: 16,
     theme: "system",
+    geminiApiKey: "AIzaSyAg9vO1uRjzQxuIdVJcW-13-GL8AKVhl6I",
   },
 });
 

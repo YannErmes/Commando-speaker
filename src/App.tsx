@@ -11,6 +11,7 @@ import Vocabulary from "./pages/Vocabulary";
 import TongueTwisters from "./pages/TongueTwisters";
 import PDFReader from "./pages/PDFReader";
 import Settings from "./pages/Settings";
+import Goals from "./pages/Goals";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/vocabulary" element={<Vocabulary />} />
           <Route path="/tongue-twisters" element={<TongueTwisters />} />
           <Route path="/pdf-reader" element={<PDFReader />} />
+          <Route path="/goals" element={<Goals />} />
           <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

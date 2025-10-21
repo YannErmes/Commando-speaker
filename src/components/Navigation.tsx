@@ -11,8 +11,9 @@ const Navigation = () => {
     { to: "/reading", label: "Reading", icon: BookA },
     { to: "/vocabulary", label: "Vocabulary", icon: Languages },
     { to: "/tongue-twisters", label: "Tongue Twisters", icon: Languages },
-    { to: "/pdf-reader", label: "PDF Reader", icon: FileText },
-    { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/pdf-reader", label: "PDF Reader", icon: FileText },
+  { to: "/goals", label: "Goals", icon: FileText },
+  { to: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (

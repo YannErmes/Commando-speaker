@@ -48,6 +48,41 @@ export const useAppData = () => {
     return newVocab.id;
   };
 
+  const addExercise = (exercise: Omit<import("@/lib/storage").ExerciseSet, "id" | "savedAt">) => {
+    const newEx = {
+      ...exercise,
+      id: crypto.randomUUID(),
+      savedAt: new Date().toISOString(),
+    } as import("@/lib/storage").ExerciseSet;
+    setData((prev) => ({ ...prev, exercises: [newEx, ...(prev.exercises || [])] }));
+    return newEx.id;
+  };
+
+  const deleteExercise = (id: string) => {
+    setData((prev) => ({ ...prev, exercises: prev.exercises.filter((e) => e.id !== id) }));
+  };
+
+  const updateExercise = (id: string, updates: Partial<import("@/lib/storage").ExerciseSet>) => {
+    setData((prev) => ({
+      ...prev,
+      exercises: prev.exercises.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+    }));
+  };
+
+  const addGoal = (goal: Omit<import("@/lib/storage").WeeklyGoal, "id" | "createdAt">) => {
+    const newGoal = { ...goal, id: crypto.randomUUID(), createdAt: new Date().toISOString() } as import("@/lib/storage").WeeklyGoal;
+    setData((prev) => ({ ...prev, goals: [newGoal, ...(prev.goals || [])] }));
+    return newGoal.id;
+  };
+
+  const updateGoal = (id: string, updates: Partial<import("@/lib/storage").WeeklyGoal>) => {
+    setData((prev) => ({ ...prev, goals: prev.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)) }));
+  };
+
+  const deleteGoal = (id: string) => {
+    setData((prev) => ({ ...prev, goals: prev.goals.filter((g) => g.id !== id) }));
+  };
+
   const deleteVocab = (id: string) => {
     setData((prev) => ({
       ...prev,
@@ -106,6 +141,12 @@ export const useAppData = () => {
     addVocab,
     deleteVocab,
     updateVocab,
+    addExercise,
+    deleteExercise,
+    updateExercise,
+    addGoal,
+    updateGoal,
+    deleteGoal,
     toggleTongueTwisterPracticed,
     updateSettings,
     addPdfPath,

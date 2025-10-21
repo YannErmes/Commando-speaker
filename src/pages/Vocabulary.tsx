@@ -128,6 +128,13 @@ const Vocabulary = () => {
                             <Button
                               size="sm"
                               variant="outline"
+                              onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(vocab.text + ' meaning')}`, '_blank')}
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
                               onClick={() => handleSpeak(vocab.text)}
                             >
                               <Volume2 className="h-4 w-4" />
