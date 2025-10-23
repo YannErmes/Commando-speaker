@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Book, BookA, Languages, Settings, FileText } from "lucide-react";
+import { Book, BookA, Languages, Settings, FileText, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -10,10 +10,11 @@ const Navigation = () => {
     { to: "/", label: "Home", icon: Book },
     { to: "/reading", label: "Reading", icon: BookA },
     { to: "/vocabulary", label: "Vocabulary", icon: Languages },
+    { to: "/flashcards", label: "Flashcards", icon: StickyNote },
     { to: "/tongue-twisters", label: "Tongue Twisters", icon: Languages },
-  { to: "/pdf-reader", label: "PDF Reader", icon: FileText },
-  { to: "/goals", label: "Goals", icon: FileText },
-  { to: "/settings", label: "Settings", icon: Settings },
+    { to: "/pdf-reader", label: "PDF Reader", icon: FileText },
+    { to: "/goals", label: "Goals", icon: FileText },
+    { to: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (
