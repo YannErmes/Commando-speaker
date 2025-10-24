@@ -18,6 +18,8 @@ const ReaderPage: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const utterRef = React.useRef<SpeechSynthesisUtterance | null>(null);
+  const [currentTokenIndex, setCurrentTokenIndex] = React.useState<number>(-1);
+  const tokenStartsRef = React.useRef<number[]>([]);
 
   const textItem = data.texts.find((t) => t.id === id);
   if (!textItem) {
@@ -157,6 +159,7 @@ const ReaderPage: React.FC = () => {
     utterRef.current = null;
     setIsPlaying(false);
     setIsPaused(false);
+    setCurrentTokenIndex(-1);
   };
 
   const startSpeech = () => {
@@ -175,11 +178,39 @@ const ReaderPage: React.FC = () => {
       setIsPlaying(false);
       setIsPaused(false);
       utterRef.current = null;
+      setCurrentTokenIndex(-1);
     };
     utter.onerror = () => {
       setIsPlaying(false);
       setIsPaused(false);
       utterRef.current = null;
+      setCurrentTokenIndex(-1);
+    };
+
+    // boundary event to highlight current reading position (words/tokens)
+    // onboundary gives character index in many browsers
+    // compute token starts for mapping
+    const text = textItem?.originalText || "";
+    const tokens = text.split(/(\s+)/);
+    const starts: number[] = [];
+    let offset = 0;
+    for (const tok of tokens) {
+      starts.push(offset);
+      offset += tok.length;
+    }
+    tokenStartsRef.current = starts;
+
+    utter.onboundary = (event: any) => {
+      try {
+        const charIndex: number = event.charIndex ?? event.charIndex === 0 ? event.charIndex : -1;
+        if (charIndex >= 0) {
+          // find token index where start <= charIndex
+          const idx = tokenStartsRef.current.reduce((acc, val, i) => (val <= charIndex ? i : acc), 0);
+          setCurrentTokenIndex(idx);
+        }
+      } catch (e) {
+        // ignore boundary mapping errors
+      }
     };
 
     utterRef.current = utter;
@@ -217,15 +248,18 @@ const ReaderPage: React.FC = () => {
   };
 
   const renderTextWithHighlights = (text: string) => {
-    const words = text.split(/(\s+)/);
-    return words.map((word, idx) => {
-      const cleanWord = word.toLowerCase().replace(/[.,!?;:]/g, "");
-      const isHighlighted = addedWords.has(cleanWord);
+    const tokens = text.split(/(\s+)/);
+    return tokens.map((token, idx) => {
+      const cleanToken = token.toLowerCase().replace(/[.,!?;:]/g, "");
+      const isHighlighted = addedWords.has(cleanToken);
+      const isCurrent = idx === currentTokenIndex;
+
+      const classes = [] as string[];
+      if (isHighlighted) classes.push("bg-vocab-highlight", "border-b-2", "border-vocab-highlight-border", "font-medium");
+      if (isCurrent) classes.push("bg-yellow-300/60");
 
       return (
-        <span key={idx} className={isHighlighted ? "bg-vocab-highlight border-b-2 border-vocab-highlight-border font-medium" : ""}>
-          {word}
-        </span>
+        <span key={idx} className={classes.join(" ")}>{token}</span>
       );
     });
   };
