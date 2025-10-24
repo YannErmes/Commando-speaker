@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Search, Edit2 } from "lucide-react";
+import { Plus, Search, Edit2, Sparkles } from "lucide-react";
 
 const Flashcards = () => {
   const { data, addVocab, updateVocab } = useAppData();
@@ -27,6 +29,14 @@ const Flashcards = () => {
     examples: [],
     tags: [],
   });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedSuggestion, setGeneratedSuggestion] = useState<{
+    translation?: string;
+    ipa?: string;
+    notes?: string;
+    examples?: string[];
+  } | null>(null);
+  const [acceptedFields, setAcceptedFields] = useState<{ translation: boolean; ipa: boolean; notes: boolean; examples: boolean }>({ translation: false, ipa: false, notes: false, examples: false });
 
   const PAGE_SIZE = 6;
   const totalPages = Math.ceil(data.vocab.length / PAGE_SIZE);
@@ -111,6 +121,81 @@ const Flashcards = () => {
     }
   };
 
+  const generateMissingWithGemini = async () => {
+    const word = newVocab.text?.trim();
+    if (!word) {
+      toast({ title: 'No word', description: 'Please enter a word before generating.' });
+      return;
+    }
+
+    const apiKey = data.settings?.geminiApiKey || "";
+    if (!apiKey) {
+      toast({ title: 'AI unavailable', description: 'Set your Gemini API key in Settings to enable AI generation.', variant: 'destructive' });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      // Request Gemini to return a JSON object with optional fields
+      const prompt = `Return a JSON object with the following keys for the word: \"${word}\": translation (short), ipa (if known, otherwise empty string), notes (a short explanatory note), examples (an array of 1-3 example sentences using the word). Respond ONLY with valid JSON.`;
+
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const dataResp = await response.json();
+      const text = dataResp.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+      // Try to parse JSON from response
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(text);
+      } catch (e) {
+        // fallback: try to extract a JSON-looking substring
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try { parsed = JSON.parse(jsonMatch[0]); } catch (_) { parsed = null; }
+        }
+      }
+
+      if (!parsed) {
+        toast({ title: 'Generation failed', description: 'AI response was not valid JSON. Check API key and try again.', variant: 'destructive' });
+      } else {
+        const suggestion = {
+          translation: parsed.translation || "",
+          ipa: parsed.ipa || "",
+          notes: parsed.notes || "",
+          examples: Array.isArray(parsed.examples) ? parsed.examples : [],
+        };
+        setGeneratedSuggestion(suggestion);
+        // default accept if target field is currently empty
+        setAcceptedFields({
+          translation: !newVocab.translation,
+          ipa: !newVocab.ipa,
+          notes: !newVocab.notes,
+          examples: !(newVocab.examples && newVocab.examples.length > 0),
+        });
+        toast({ title: 'Generated', description: 'AI suggestions ready — review and apply the ones you want.' });
+      }
+    } catch (err) {
+      console.error('Gemini generation error', err);
+      toast({ title: 'Error', description: 'Failed to generate from Gemini API.', variant: 'destructive' });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -170,6 +255,96 @@ const Flashcards = () => {
                       }
                     />
                   </div>
+                  <div>
+                    <Button
+                      variant="outline"
+                      className="w-full flex items-center justify-center gap-2"
+                      onClick={generateMissingWithGemini}
+                      disabled={isGenerating}
+                    >
+                      {isGenerating ? 'Generating...' : (<><Sparkles className="h-4 w-4" />Generate with Gemini</>)}
+                    </Button>
+                  </div>
+                  {generatedSuggestion && (
+                    <div className="p-3 bg-muted/10 rounded border mt-2 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          checked={acceptedFields.translation}
+                          onCheckedChange={(v) => setAcceptedFields((s) => ({ ...s, translation: !!v }))}
+                        />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Translation (suggested)</div>
+                          <div className="font-medium">{generatedSuggestion.translation || <span className="text-muted-foreground">(none)</span>}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          checked={acceptedFields.ipa}
+                          onCheckedChange={(v) => setAcceptedFields((s) => ({ ...s, ipa: !!v }))}
+                        />
+                        <div>
+                          <div className="text-xs text-muted-foreground">IPA (suggested)</div>
+                          <div className="font-medium">{generatedSuggestion.ipa || <span className="text-muted-foreground">(none)</span>}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          checked={acceptedFields.notes}
+                          onCheckedChange={(v) => setAcceptedFields((s) => ({ ...s, notes: !!v }))}
+                        />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Notes (suggested)</div>
+                          <div className="font-medium whitespace-pre-wrap">{generatedSuggestion.notes || <span className="text-muted-foreground">(none)</span>}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          checked={acceptedFields.examples}
+                          onCheckedChange={(v) => setAcceptedFields((s) => ({ ...s, examples: !!v }))}
+                        />
+                        <div className="flex-1">
+                          <div className="text-xs text-muted-foreground">Examples (suggested)</div>
+                          {generatedSuggestion.examples && generatedSuggestion.examples.length > 0 ? (
+                            <ul className="list-disc pl-5 text-sm">
+                              {generatedSuggestion.examples.map((ex, i) => (
+                                <li key={i}>{ex}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="text-muted-foreground text-sm">(none)</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => {
+                            // apply selected fields
+                            setNewVocab((prev) => ({
+                              ...prev,
+                              translation: acceptedFields.translation ? (generatedSuggestion.translation || prev.translation) : prev.translation,
+                              ipa: acceptedFields.ipa ? (generatedSuggestion.ipa || prev.ipa) : prev.ipa,
+                              notes: acceptedFields.notes ? (generatedSuggestion.notes || prev.notes) : prev.notes,
+                              examples: acceptedFields.examples ? (generatedSuggestion.examples || prev.examples) : prev.examples,
+                            }));
+                            setGeneratedSuggestion(null);
+                            toast({ title: 'Applied', description: 'Selected suggestions applied to the form. Edit if needed then save.' });
+                          }}
+                        >
+                          Apply selected
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => { setGeneratedSuggestion(null); toast({ title: 'Discarded', description: 'AI suggestions discarded.' }); }}
+                        >
+                          Discard
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   <Button className="w-full" onClick={editingVocab ? handleSaveEdit : handleAddVocab}>
                     {editingVocab ? 'Save Changes' : 'Add Vocabulary'}
                   </Button>
