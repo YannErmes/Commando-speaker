@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAppData } from "@/hooks/useAppData";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, Search, Sparkles, Headphones } from "lucide-react";
+import { Minus, Plus, Search, Sparkles, Headphones, Play, Pause, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const ReaderPage: React.FC = () => {
@@ -11,6 +11,13 @@ const ReaderPage: React.FC = () => {
   const { data, addVocab } = useAppData();
   const [fontSize, setFontSize] = useState(16);
   const [addedWords, setAddedWords] = useState<Set<string>>(new Set());
+  // TTS state
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
+  const [rate, setRate] = useState<number>(1);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const utterRef = React.useRef<SpeechSynthesisUtterance | null>(null);
 
   const textItem = data.texts.find((t) => t.id === id);
   if (!textItem) {
@@ -123,6 +130,92 @@ const ReaderPage: React.FC = () => {
     window.open(`https://fr.youglish.com/pronounce/${encodeURIComponent(word)}/english/us`, '_blank');
   };
 
+  // --- Text-to-Speech handlers ---
+  React.useEffect(() => {
+    const loadVoices = () => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+      const v = window.speechSynthesis.getVoices();
+      setVoices(v);
+      if (v.length && !selectedVoiceURI) setSelectedVoiceURI(v[0].voiceURI);
+    };
+
+    loadVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = null as any;
+      }
+    };
+  }, [selectedVoiceURI]);
+
+  const stopSpeech = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    utterRef.current = null;
+    setIsPlaying(false);
+    setIsPaused(false);
+  };
+
+  const startSpeech = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      toast({ title: 'TTS not supported', description: 'Your browser does not support Speech Synthesis.' });
+      return;
+    }
+
+    stopSpeech();
+
+    const utter = new SpeechSynthesisUtterance(textItem?.originalText || "");
+    const voice = voices.find(v => v.voiceURI === selectedVoiceURI) || null;
+    if (voice) utter.voice = voice;
+    utter.rate = rate;
+    utter.onend = () => {
+      setIsPlaying(false);
+      setIsPaused(false);
+      utterRef.current = null;
+    };
+    utter.onerror = () => {
+      setIsPlaying(false);
+      setIsPaused(false);
+      utterRef.current = null;
+    };
+
+    utterRef.current = utter;
+    window.speechSynthesis.speak(utter);
+    setIsPlaying(true);
+    setIsPaused(false);
+  };
+
+  const pauseSpeech = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+      window.speechSynthesis.pause();
+      setIsPaused(true);
+      setIsPlaying(false);
+    }
+  };
+
+  const resumeSpeech = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+      setIsPaused(false);
+      setIsPlaying(true);
+    }
+  };
+
+  const togglePlayPause = () => {
+    if (isPlaying) {
+      pauseSpeech();
+    } else if (isPaused) {
+      resumeSpeech();
+    } else {
+      startSpeech();
+    }
+  };
+
   const renderTextWithHighlights = (text: string) => {
     const words = text.split(/(\s+)/);
     return words.map((word, idx) => {
@@ -154,6 +247,44 @@ const ReaderPage: React.FC = () => {
               <Button size="sm" variant="outline" onClick={() => setFontSize(Math.min(24, fontSize + 2))}>
                 <Plus className="h-4 w-4" />
               </Button>
+
+              {/* Text-to-Speech controls */}
+              <div className="flex items-center gap-2 border rounded px-2 py-1">
+                <Button size="sm" variant="ghost" onClick={togglePlayPause} className="h-8 w-8 p-0">
+                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { stopSpeech(); }} className="h-8 w-8 p-0">
+                  <X className="h-4 w-4" />
+                </Button>
+
+                <select
+                  value={selectedVoiceURI}
+                  onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                  className="text-sm bg-transparent border-none outline-none"
+                  aria-label="Select voice"
+                >
+                  {voices.length === 0 ? (
+                    <option>Loading voices...</option>
+                  ) : (
+                    voices.map((v) => (
+                      <option key={v.voiceURI} value={v.voiceURI}>{v.name} {v.lang ? `(${v.lang})` : ''}</option>
+                    ))
+                  )}
+                </select>
+
+                <label className="text-xs text-muted-foreground ml-2">Rate</label>
+                <input
+                  type="range"
+                  min={0.6}
+                  max={1.6}
+                  step={0.1}
+                  value={rate}
+                  onChange={(e) => setRate(Number(e.target.value))}
+                  className="w-24"
+                  aria-label="Speech rate"
+                />
+              </div>
+
               <Button size="sm" onClick={() => navigate(-1)}>Back</Button>
             </div>
           </div>
