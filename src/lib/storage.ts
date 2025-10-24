@@ -91,6 +91,44 @@ export const exportData = (): string => {
   return JSON.stringify(getAppData(), null, 2);
 };
 
+export const exportVocabCSV = (): string => {
+  const data = getAppData();
+  // Export only the user-facing fields requested: text, ipa, translation, notes, examples
+  const headers = [
+    'text',
+    'ipa',
+    'translation',
+    'notes',
+    'examples',
+  ];
+
+  const escape = (value: any) => {
+    if (value === null || value === undefined) return '""';
+    const s = typeof value === 'string' ? value : String(value);
+    // double-up quotes per CSV rules
+    return '"' + s.replace(/"/g, '""') + '"';
+  };
+
+  const rows: string[] = [];
+  rows.push(headers.join(','));
+
+  data.vocab.forEach((v) => {
+    const examples = Array.isArray(v.examples) ? v.examples.join(' | ') : '';
+
+    const row = [
+      escape(v.text),
+      escape(v.ipa || ''),
+      escape(v.translation || ''),
+      escape(v.notes || ''),
+      escape(examples),
+    ];
+
+    rows.push(row.join(','));
+  });
+
+  return rows.join('\n');
+};
+
 export const importData = (jsonString: string): boolean => {
   try {
     const data = JSON.parse(jsonString);

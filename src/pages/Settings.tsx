@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Upload, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { exportData, importData, resetData } from "@/lib/storage";
+import { exportData, importData, resetData, exportVocabCSV } from "@/lib/storage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -125,10 +125,32 @@ const Settings = () => {
                     <p className="text-sm text-muted-foreground mb-3">
                       Download all your texts, vocabulary, and progress as a JSON file
                     </p>
-                    <Button onClick={handleExport} variant="outline">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export to JSON
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button onClick={handleExport} variant="outline">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export to JSON
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          const csv = exportVocabCSV();
+                          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `langlearn-vocab-${new Date().toISOString().split('T')[0]}.csv`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+
+                          toast({ title: 'Export successful', description: 'Vocabulary CSV downloaded' });
+                        }}
+                        variant="outline"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Vocab (CSV)
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
