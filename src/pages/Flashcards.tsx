@@ -75,13 +75,7 @@ const Flashcards = () => {
     setIsAddingVocab(false);
   };
 
-  // Toggle flip state for a single card (controlled by buttons)
-  const toggleFlip = (cardIndex: number) => {
-    const cardElement = document.getElementById(`card-${cardIndex}`);
-    if (cardElement) {
-      cardElement.classList.toggle("flipped");
-    }
-  };
+  // NOTE: flip functionality removed — cards now only show the front side
 
   const handleEditVocab = (id: string) => {
     const vocab = data.vocab.find(v => v.id === id);
@@ -218,16 +212,11 @@ const Flashcards = () => {
                     </div>
 
                     <div className="flashcard-inner h-full">
-                      <div className="flashcard-front flex flex-col justify-center items-center h-full cursor-pointer" onClick={() => toggleFlip(index)}>
-                        <h3 className="text-xl font-bold mb-2">{vocab.text}</h3>
+                      <div className="flashcard-front flex flex-col justify-center items-center h-full">
+                        <h3 className="text-xl font-bold">{vocab.text}</h3>
                         {vocab.ipa && (
-                          <p className="text-sm text-muted-foreground font-mono">{vocab.ipa}</p>
+                          <p className="text-sm text-muted-foreground font-mono mt-2">{vocab.ipa}</p>
                         )}
-                      </div>
-
-                      <div className="flashcard-back flex flex-col justify-center items-center h-full cursor-pointer" onClick={() => toggleFlip(index)}>
-                        {vocab.translation && <p className="text-lg mb-2">{vocab.translation}</p>}
-                        {vocab.notes && <p className="text-sm text-muted-foreground">{vocab.notes}</p>}
                       </div>
                     </div>
                   </CardContent>
