@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Upload, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { exportData, importData, resetData, exportVocabCSV } from "@/lib/storage";
+import { exportData, importData, resetData, exportVocabCSV, exportVocabHTML } from "@/lib/storage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -150,6 +150,30 @@ const Settings = () => {
                         <Download className="h-4 w-4 mr-2" />
                         Export Vocab (CSV)
                       </Button>
+
+                      <Button
+                        onClick={() => {
+                          const html = exportVocabHTML();
+                          // Download HTML version
+                          const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `langlearn-vocab-${new Date().toISOString().split('T')[0]}.html`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+
+                          toast({ title: 'Export successful', description: 'Vocabulary HTML downloaded' });
+                        }}
+                        variant="outline"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Vocab (HTML)
+                      </Button>
+
+                      {/* PDF export removed per user request */}
                     </div>
                   </div>
                 </div>

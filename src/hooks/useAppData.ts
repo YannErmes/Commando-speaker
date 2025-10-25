@@ -40,12 +40,27 @@ export const useAppData = () => {
       ...vocab,
       id: crypto.randomUUID(),
       addedAt: new Date().toISOString(),
+      usageCount: 0,
+      usageHistory: {},
     };
     setData((prev) => ({
       ...prev,
       vocab: [newVocab, ...prev.vocab],
     }));
     return newVocab.id;
+  };
+
+  const markVocabUsed = (id: string) => {
+    setData((prev) => ({
+      ...prev,
+      vocab: prev.vocab.map((v) => {
+        if (v.id !== id) return v;
+        const today = new Date().toISOString().split('T')[0];
+        const newHistory = { ...(v.usageHistory || {}) };
+        newHistory[today] = (newHistory[today] || 0) + 1;
+        return { ...v, usageCount: (v.usageCount || 0) + 1, usageHistory: newHistory };
+      }),
+    }));
   };
 
   const addExercise = (exercise: Omit<import("@/lib/storage").ExerciseSet, "id" | "savedAt">) => {
@@ -141,6 +156,7 @@ export const useAppData = () => {
     addVocab,
     deleteVocab,
     updateVocab,
+    markVocabUsed,
     addExercise,
     deleteExercise,
     updateExercise,

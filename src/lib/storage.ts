@@ -35,6 +35,9 @@ export interface VocabEntry {
   examples: string[];
   tags: string[];
   textId?: string; // Link to the text this vocab came from
+  usageCount?: number;
+  // historical usage by date (ISO yyyy-mm-dd -> count)
+  usageHistory?: { [date: string]: number };
 }
 
 export interface PdfPath {
@@ -127,6 +130,72 @@ export const exportVocabCSV = (): string => {
   });
 
   return rows.join('\n');
+};
+
+export const exportVocabHTML = (): string => {
+  const data = getAppData();
+
+  const escapeHtml = (unsafe: any) => {
+    if (unsafe === null || unsafe === undefined) return "";
+    return String(unsafe)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
+  const rows = data.vocab.map((v) => {
+    const examples = Array.isArray(v.examples) ? v.examples.map(e => escapeHtml(e)).join('<br/>') : '';
+    return `
+      <tr>
+        <td class="cell">${escapeHtml(v.text)}</td>
+        <td class="cell">${escapeHtml(v.ipa || '')}</td>
+        <td class="cell">${escapeHtml(v.translation || '')}</td>
+        <td class="cell">${escapeHtml(v.notes || '')}</td>
+        <td class="cell">${examples}</td>
+      </tr>`;
+  }).join('\n');
+
+  const html = `<!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>LangLearn Vocabulary Export</title>
+    <style>
+      body{font-family:Inter,system-ui,Arial,Helvetica,sans-serif;margin:20px;color:#111}
+      h1{font-size:20px;margin-bottom:6px}
+      p{color:#555;margin-top:0;margin-bottom:12px}
+      table{width:100%;border-collapse:collapse}
+      thead th{background:#f3f4f6;padding:10px;border:1px solid #e5e7eb;text-align:left}
+      .cell{padding:10px;border:1px solid #e5e7eb;vertical-align:top}
+      tbody tr:nth-child(even){background:#fbfbfb}
+      .examples{white-space:pre-wrap}
+      @media print{ body{margin:0} thead th{background:#eee !important} }
+    </style>
+  </head>
+  <body>
+    <h1>Vocabulary Export</h1>
+    <p>Exported from LangLearn — ${new Date().toLocaleString()}</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Text</th>
+          <th>IPA</th>
+          <th>Translation</th>
+          <th>Notes</th>
+          <th>Examples</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </body>
+  </html>`;
+
+  return html;
 };
 
 export const importData = (jsonString: string): boolean => {

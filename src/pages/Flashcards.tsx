@@ -16,7 +16,7 @@ import {
 import { Plus, Search, Edit2, Sparkles } from "lucide-react";
 
 const Flashcards = () => {
-  const { data, addVocab, updateVocab } = useAppData();
+  const { data, addVocab, updateVocab, markVocabUsed } = useAppData();
   const [currentSet, setCurrentSet] = useState(0);
   const [isAddingVocab, setIsAddingVocab] = useState(false);
   const [editingVocab, setEditingVocab] = useState<string | null>(null);
@@ -356,8 +356,10 @@ const Flashcards = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             {currentVocabSet.map((vocab, index) => (
               <div key={vocab.id} className="flashcard-container">
-                <Card id={`card-${index}`} className="h-[220px] flashcard">
-                  <CardContent className="p-6 h-full relative">
+                <Card id={`card-${index}`} className="h-[220px] flashcard" onClick={() => markVocabUsed(vocab.id)}>
+                  <CardContent className="p-6 h-full relative cursor-pointer">
+                    {/* usage count badge */}
+                    <div className="absolute left-3 top-3 z-20 bg-muted/50 text-xs px-2 py-1 rounded-full">Used: {vocab.usageCount || 0}</div>
                     <div className="absolute top-2 right-2 z-10 card-actions flex gap-2">
                       <Button
                         size="sm"

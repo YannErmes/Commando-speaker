@@ -8,6 +8,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2, BookOpen, Plus, Minus, X, Search, Sparkles, Headphones } from "lucide-react";
 import { QuestionGeneratorDialog } from "@/components/QuestionGeneratorDialog";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const GoalsList: React.FC = () => {
@@ -384,19 +395,32 @@ Return ONLY a JSON array of objects with this exact format, nothing else:
                                 <Button size="sm" variant="outline" onClick={() => navigate(`/reading/${t.id}`)}>
                                   <BookOpen className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => {
-                                    deleteText(t.id);
-                                    toast({
-                                      title: "Text deleted",
-                                      description: "Reading material removed",
-                                    });
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete text?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will permanently delete the saved text. This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => {
+                                          deleteText(t.id);
+                                          toast({ title: "Text deleted", description: "Reading material removed" });
+                                        }}
+                                      >
+                                        Yes, delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                                 <Button
                                   size="sm"
                                   variant="outline"

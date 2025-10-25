@@ -1,6 +1,6 @@
 import { useAppData } from "@/hooks/useAppData";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Book, BookA, Languages, TrendingUp } from "lucide-react";
+import { Book, BookA, Languages, TrendingUp, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -20,6 +20,16 @@ const Home = () => {
       label: "Vocabulary",
       value: data.vocab.length,
       description: "Words & sentences",
+      to: "/vocabulary",
+    },
+    {
+      icon: CalendarDays,
+      label: "Used Today",
+      value: data.vocab.reduce((sum, v) => {
+        const today = new Date().toISOString().split('T')[0];
+        return sum + (v.usageHistory?.[today] || 0);
+      }, 0),
+      description: "Words marked used today",
       to: "/vocabulary",
     },
     {
