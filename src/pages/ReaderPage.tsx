@@ -33,6 +33,33 @@ const ReaderPage: React.FC = () => {
     );
   }
 
+  // Extract YouTube video ID from common YouTube URL forms
+  const getYouTubeEmbedUrl = (url?: string | null) => {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      const host = u.hostname.toLowerCase();
+      // youtu.be short links
+      if (host === 'youtu.be') {
+        const id = u.pathname.slice(1);
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+      // youtube.com watch?v= or embed
+      if (host.includes('youtube.com')) {
+        const v = u.searchParams.get('v');
+        if (v) return `https://www.youtube.com/embed/${v}`;
+        // maybe already an embed URL
+        const parts = u.pathname.split('/').filter(Boolean);
+        const idx = parts.indexOf('embed');
+        if (idx !== -1 && parts[idx + 1]) return `https://www.youtube.com/embed/${parts[idx + 1]}`;
+      }
+    } catch (e) {
+      // ignore malformed URLs
+    }
+    return null;
+  };
+  const embedUrl = getYouTubeEmbedUrl(textItem.videoUrl as any);
+
   const handleTextSelection = () => {
     const selection = window.getSelection();
     if (!selection || selection.toString().trim() === "") return;
@@ -338,9 +365,27 @@ const ReaderPage: React.FC = () => {
             </div>
 
             <aside className="flex flex-col h-full bg-muted/20">
-              <div className="px-4 py-3 border-b">
-                <h3 className="font-semibold text-base">Vocabulary</h3>
-              </div>
+              {embedUrl ? (
+                <div className="px-4 py-3 border-b">
+                  <div className="mb-2 text-sm font-medium">Video</div>
+                  <div className="w-full">
+                    <div className="aspect-w-16 aspect-h-9 rounded overflow-hidden bg-black">
+                      <iframe
+                        src={embedUrl}
+                        title="YouTube video"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        frameBorder={0}
+                        className="w-full h-48"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-4 py-3 border-b">
+                  <h3 className="font-semibold text-base">Vocabulary</h3>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3">
                 {data.vocab.filter(v => v.textId === id).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Select text to add vocabulary</p>

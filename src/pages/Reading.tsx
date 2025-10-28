@@ -58,6 +58,7 @@ const Reading = () => {
   const { data, addText, deleteText, addVocab, addExercise } = useAppData();
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
   const titleRef = React.useRef<HTMLInputElement | null>(null);
   const textRef = React.useRef<HTMLTextAreaElement | null>(null);
   const [savedSignal, setSavedSignal] = useState(false);
@@ -84,9 +85,10 @@ const Reading = () => {
       return;
     }
 
-    const newId = addText({ title, originalText: text });
+  const newId = addText({ title, originalText: text, videoUrl: videoUrl?.trim() ? videoUrl.trim() : undefined });
     setTitle("");
     setText("");
+  setVideoUrl("");
     // show short inline confirmation in addition to toast
     setSavedSignal(true);
     setTimeout(() => setSavedSignal(false), 2500);
@@ -339,6 +341,12 @@ Return ONLY a JSON array of objects with this exact format, nothing else:
                     onChange={(e) => setTitle(e.target.value)}
                     className="text-sm sm:text-base"
                   />
+                  <Input
+                    placeholder="YouTube link (optional)"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    className="text-sm sm:text-base mt-2"
+                  />
                   <Textarea
                     ref={textRef}
                     placeholder="Paste your text here..."
@@ -390,6 +398,11 @@ Return ONLY a JSON array of objects with this exact format, nothing else:
                                 <p className="text-xs text-muted-foreground mt-2">
                                   {new Date(t.date).toLocaleDateString()}
                                 </p>
+                                {t.videoUrl && (
+                                  <div className="mt-2">
+                                    <span className="inline-block text-xs px-2 py-1 rounded bg-muted/60">Video attached</span>
+                                  </div>
+                                )}
                               </div>
                               <div className="flex flex-row sm:flex-col gap-2">
                                 <Button size="sm" variant="outline" onClick={() => navigate(`/reading/${t.id}`)}>

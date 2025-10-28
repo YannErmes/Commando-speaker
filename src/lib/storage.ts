@@ -5,6 +5,8 @@ export interface SavedText {
   title: string;
   date: string;
   originalText: string;
+  // Optional video URL (e.g. YouTube) associated with this text
+  videoUrl?: string;
 }
 
 export interface ExerciseSet {
