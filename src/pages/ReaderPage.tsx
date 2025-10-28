@@ -60,6 +60,84 @@ const ReaderPage: React.FC = () => {
   };
   const embedUrl = getYouTubeEmbedUrl(textItem.videoUrl as any);
 
+  // --- YouTube player + sync support ---
+  const playerContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const ytPlayerRef = React.useRef<any>(null);
+  const [videoDuration, setVideoDuration] = React.useState<number>(0);
+
+  const getYouTubeVideoId = (url?: string | null) => {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      const host = u.hostname.toLowerCase();
+      if (host === 'youtu.be') return u.pathname.slice(1) || null;
+      if (host.includes('youtube.com')) {
+        const v = u.searchParams.get('v');
+        if (v) return v;
+        const parts = u.pathname.split('/').filter(Boolean);
+        const idx = parts.indexOf('embed');
+        if (idx !== -1 && parts[idx + 1]) return parts[idx + 1];
+      }
+    } catch (e) {}
+    return null;
+  };
+
+  // Note: video-based transcript highlighting removed; keep player only.
+
+  React.useEffect(() => {
+    if (!embedUrl) return;
+
+    const videoId = getYouTubeVideoId(textItem.videoUrl as any);
+    if (!videoId) return;
+
+    const initPlayer = () => {
+      try {
+        const YT = (window as any).YT;
+        if (!YT || !playerContainerRef.current) return;
+        ytPlayerRef.current = new YT.Player(playerContainerRef.current, {
+          videoId,
+          playerVars: { enablejsapi: 1, origin: window.location.origin },
+          events: {
+            onReady: (e: any) => {
+              try {
+                const dur = e.target.getDuration();
+                setVideoDuration(dur || 0);
+              } catch (err) {}
+            },
+            onStateChange: (_e: any) => {
+              // no-op: we don't auto-sync transcript to video playback
+            }
+          }
+        });
+      } catch (e) {
+        // ignore init errors
+      }
+    };
+
+    if ((window as any).YT && (window as any).YT.Player) {
+      initPlayer();
+    } else {
+      // load the IFrame API if not present
+      if (!(window as any).onYouTubeIframeAPIReady) {
+        (window as any).onYouTubeIframeAPIReady = () => initPlayer();
+      }
+      if (!document.getElementById('youtube-iframe-api')) {
+        const s = document.createElement('script');
+        s.id = 'youtube-iframe-api';
+        s.src = 'https://www.youtube.com/iframe_api';
+        document.body.appendChild(s);
+      }
+    }
+
+    return () => {
+      try {
+        ytPlayerRef.current?.destroy?.();
+      } catch (e) {}
+      ytPlayerRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedUrl, textItem.id]);
+
   const handleTextSelection = () => {
     const selection = window.getSelection();
     if (!selection || selection.toString().trim() === "") return;
@@ -229,7 +307,7 @@ const ReaderPage: React.FC = () => {
 
     utter.onboundary = (event: any) => {
       try {
-        const charIndex: number = event.charIndex ?? event.charIndex === 0 ? event.charIndex : -1;
+  const charIndex: number = event.charIndex ?? (event.charIndex === 0 ? event.charIndex : -1);
         if (charIndex >= 0) {
           // find token index where start <= charIndex
           const idx = tokenStartsRef.current.reduce((acc, val, i) => (val <= charIndex ? i : acc), 0);
@@ -350,42 +428,37 @@ const ReaderPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-[1fr_350px] gap-6 min-h-[60vh]">
-            <div className="flex flex-col h-full min-h-0 border-r">
-              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
-                <div
-                  className="bg-reader-bg text-reader-text rounded-lg leading-relaxed font-serif whitespace-pre-wrap break-words select-text p-6"
-                  style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}
-                  onDoubleClick={handleTextSelection}
-                  onMouseUp={handleTextSelection}
-                >
-                  {renderTextWithHighlights(textItem.originalText)}
-                </div>
+          {/* Video centered under header */}
+          <div className="flex justify-center mb-4">
+            <div className="w-full max-w-3xl px-4">
+              <div className="rounded overflow-hidden bg-black flex justify-center items-center" style={{ height: 240 }}>
+                {/* Player container (YT IFrame API mounts here) */}
+                {embedUrl ? (
+                  <div ref={playerContainerRef} className="w-full h-full" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">No video attached</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Content row: text (scrollable) and vocabulary (scrollable) */}
+          <div className="grid lg:grid-cols-[1fr_350px] gap-6" style={{ height: 'calc(100vh - 360px)' }}>
+            <div className="overflow-y-auto px-6 py-6 min-h-0">
+              <div
+                className="bg-reader-bg text-reader-text rounded-lg leading-relaxed font-serif whitespace-pre-wrap break-words select-text p-6"
+                style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}
+                onDoubleClick={handleTextSelection}
+                onMouseUp={handleTextSelection}
+              >
+                {renderTextWithHighlights(textItem.originalText)}
               </div>
             </div>
 
             <aside className="flex flex-col h-full bg-muted/20">
-              {embedUrl ? (
-                <div className="px-4 py-3 border-b">
-                  <div className="mb-2 text-sm font-medium">Video</div>
-                  <div className="w-full">
-                    <div className="aspect-w-16 aspect-h-9 rounded overflow-hidden bg-black">
-                      <iframe
-                        src={embedUrl}
-                        title="YouTube video"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        frameBorder={0}
-                        className="w-full h-48"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="px-4 py-3 border-b">
-                  <h3 className="font-semibold text-base">Vocabulary</h3>
-                </div>
-              )}
+              <div className="px-4 py-3 border-b">
+                <h3 className="font-semibold text-base">Vocabulary</h3>
+              </div>
               <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3">
                 {data.vocab.filter(v => v.textId === id).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Select text to add vocabulary</p>

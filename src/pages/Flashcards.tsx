@@ -22,6 +22,10 @@ const Flashcards = () => {
   const [studyDialogOpen, setStudyDialogOpen] = useState(false);
   const [isStudyMode, setIsStudyMode] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  // Temporary study box state (visual only, not persisted)
+  const [studyBox, setStudyBox] = useState<string[]>([]); // ids added to box
+  const [studiedBox, setStudiedBox] = useState<string[]>([]); // ids moved to 'used' (green)
+  const [showStudyBox, setShowStudyBox] = useState(false);
   const [editingVocab, setEditingVocab] = useState<string | null>(null);
   const [newVocab, setNewVocab] = useState({
     text: "",
@@ -89,6 +93,46 @@ const Flashcards = () => {
       tags: [],
     });
     setIsAddingVocab(false);
+  };
+
+  // Study box helpers (visual only)
+  const addToStudyBox = (id: string) => {
+    setStudyBox((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    toast({ title: 'Added', description: 'Word added to study box' });
+  };
+
+  const removeFromStudyBox = (id: string) => {
+    setStudyBox((prev) => prev.filter(x => x !== id));
+    setStudiedBox((prev) => prev.filter(x => x !== id));
+  };
+
+  const markAsStudied = (id: string) => {
+    // move id to studiedBox if in studyBox
+    setStudyBox((prev) => prev.filter(x => x !== id));
+    setStudiedBox((prev) => prev.includes(id) ? prev : [...prev, id]);
+  };
+
+  const unmarkStudied = (id: string) => {
+    setStudiedBox((prev) => prev.filter(x => x !== id));
+    setStudyBox((prev) => prev.includes(id) ? prev : [...prev, id]);
+  };
+
+  const clearStudyBox = () => {
+    setStudyBox([]);
+    setStudiedBox([]);
+  };
+
+  // Toggle an item between boxes (click behavior in the dialog)
+  const toggleStudyItem = (id: string) => {
+    if (studyBox.includes(id)) {
+      markAsStudied(id);
+      return;
+    }
+    if (studiedBox.includes(id)) {
+      unmarkStudied(id);
+      return;
+    }
+    addToStudyBox(id);
   };
 
   const handleEditVocab = (id: string) => {
@@ -261,6 +305,76 @@ const Flashcards = () => {
                 </DialogContent>
               </Dialog>
 
+              {/* Study Box dialog */}
+              <Dialog open={showStudyBox} onOpenChange={setShowStudyBox}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">Study Box</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl w-[92vw] p-6">
+                  <DialogHeader>
+                    <DialogTitle>Study Box</DialogTitle>
+                  </DialogHeader>
+                  <div className="pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-2xl border bg-red-50 shadow-sm">
+                        <h4 className="font-semibold mb-3 text-red-900 text-lg">To Use</h4>
+                        {studyBox.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No items added yet — click items on the left to add them here.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {studyBox.map(id => {
+                              const v = data.vocab.find(x => x.id === id);
+                              if (!v) return null;
+                              return (
+                                <button
+                                  key={id}
+                                  onClick={() => toggleStudyItem(id)}
+                                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-red-100 text-red-900 text-sm hover:shadow-md transition"
+                                  title="Click to mark used"
+                                >
+                                  <span className="truncate max-w-[10rem]">{v.text}</span>
+                                  <span className="text-[10px] text-red-700">→</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 rounded-2xl border bg-green-50 shadow-sm">
+                        <h4 className="font-semibold mb-3 text-green-900 text-lg">Used</h4>
+                        {studiedBox.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No items used yet — click a chip in the left column to move it here.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {studiedBox.map(id => {
+                              const v = data.vocab.find(x => x.id === id);
+                              if (!v) return null;
+                              return (
+                                <button
+                                  key={id}
+                                  onClick={() => toggleStudyItem(id)}
+                                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-green-100 text-green-900 text-sm hover:shadow-md transition"
+                                  title="Click to move back"
+                                >
+                                  <span className="truncate max-w-[10rem]">{v.text}</span>
+                                  <span className="text-[10px] text-green-700">↶</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 mt-6">
+                      <Button variant="destructive" onClick={() => clearStudyBox()}>Clear</Button>
+                      <Button onClick={() => setShowStudyBox(false)}>Close</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               <Button
                 onClick={() => {
                   if (isStudyMode) {
@@ -380,6 +494,11 @@ const Flashcards = () => {
                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); handleEditVocab(vocab.id); }}>
                         <Edit2 className="h-4 w-4" />
                       </Button>
+                      {isStudyMode && (
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); addToStudyBox(vocab.id); }}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
 
                     <div className="flashcard-inner h-full">
