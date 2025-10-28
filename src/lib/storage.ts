@@ -65,6 +65,7 @@ export interface AppData {
   pdfPaths: PdfPath[];
   exercises: ExerciseSet[];
   goals: WeeklyGoal[];
+  tags: string[];  // Global list of vocabulary tags
   settings: {
     fontSize: number;
     theme: "light" | "dark" | "system";
@@ -220,6 +221,7 @@ const getDefaultData = (): AppData => ({
   pdfPaths: [],
   exercises: [],
   goals: [],
+  tags: [], // Initialize empty tags array
   settings: {
     fontSize: 16,
     theme: "system",

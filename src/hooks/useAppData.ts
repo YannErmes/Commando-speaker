@@ -8,6 +8,39 @@ export const useAppData = () => {
     saveAppData(data);
   }, [data]);
 
+  const addTag = (tag: string) => {
+    if (!data.tags.includes(tag)) {
+      setData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tag]
+      }));
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    setData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(t => t !== tag),
+      // Also remove this tag from all vocab entries
+      vocab: prev.vocab.map(v => ({
+        ...v,
+        tags: v.tags?.filter(t => t !== tag) || []
+      }))
+    }));
+  };
+
+  const updateTag = (oldTag: string, newTag: string) => {
+    setData(prev => ({
+      ...prev,
+      tags: prev.tags.map(t => t === oldTag ? newTag : t),
+      // Update the tag in all vocab entries
+      vocab: prev.vocab.map(v => ({
+        ...v,
+        tags: v.tags?.map(t => t === oldTag ? newTag : t) || []
+      }))
+    }));
+  };
+
   const addText = (text: Omit<SavedText, "id" | "date">) => {
     const newText: SavedText = {
       ...text,
@@ -168,5 +201,9 @@ export const useAppData = () => {
     addPdfPath,
     deletePdfPath,
     setData,
+    // Tag management functions
+    addTag,
+    removeTag,
+    updateTag,
   };
 };

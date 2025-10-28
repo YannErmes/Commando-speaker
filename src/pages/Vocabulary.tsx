@@ -21,18 +21,49 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Vocabulary = () => {
-  const { data, deleteVocab, updateVocab } = useAppData();
+  const { data, deleteVocab, updateVocab, addTag, removeTag, updateTag } = useAppData();
   const [search, setSearch] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     ipa: string;
     translation: string;
     notes: string;
-  }>({ ipa: "", translation: "", notes: "" });
+    tags: string[];
+  }>({ ipa: "", translation: "", notes: "", tags: [] });
 
   const filteredVocab = data.vocab.filter((v) =>
-    v.text.toLowerCase().includes(search.toLowerCase())
+    v.text.toLowerCase().includes(search.toLowerCase()) &&
+    (selectedTags.length === 0 || selectedTags.every(tag => v.tags?.includes(tag)))
   );
+
+  const handleAddTag = () => {
+    if (newTag.trim()) {
+      addTag(newTag.trim());
+      setNewTag("");
+    }
+  };
+
+  const handleDeleteTag = (tag: string) => {
+    removeTag(tag);
+  };
+
+  const handleUpdateTag = (oldTag: string, newTag: string) => {
+    if (newTag.trim() && newTag !== oldTag) {
+      updateTag(oldTag, newTag);
+      setEditingTagId(null);
+    }
+  };
+
+  const handleTagSelection = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
 
   const handleSpeak = (text: string) => {
     if ("speechSynthesis" in window) {
@@ -55,6 +86,7 @@ const Vocabulary = () => {
       ipa: vocab.ipa,
       translation: vocab.translation,
       notes: vocab.notes,
+      tags: vocab.tags || [],
     });
   };
 
@@ -98,6 +130,75 @@ const Vocabulary = () => {
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Tags</CardTitle>
+              <CardDescription>Manage and filter vocabulary by tags</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Tag Management */}
+                <div className="flex gap-2 items-center">
+                  <Input
+                    placeholder="Add new tag..."
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                  />
+                  <Button onClick={handleAddTag}>Add Tag</Button>
+                </div>
+
+                {/* Tag List & Filter */}
+                <div className="flex flex-wrap gap-2">
+                  {data.tags.map((tag) => (
+                    <div key={tag} className="flex items-center">
+                      {editingTagId === tag ? (
+                        <div className="flex gap-1">
+                          <Input
+                            className="h-8 w-32"
+                            defaultValue={tag}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                handleUpdateTag(tag, (e.target as HTMLInputElement).value);
+                              }
+                            }}
+                            onBlur={(e) => handleUpdateTag(tag, e.target.value)}
+                          />
+                        </div>
+                      ) : (
+                        <Badge
+                          className="cursor-pointer"
+                          variant={selectedTags.includes(tag) ? "default" : "outline"}
+                          onClick={() => handleTagSelection(tag)}
+                        >
+                          {tag}
+                          <button
+                            className="ml-1 hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTagId(tag);
+                            }}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </button>
+                          <button
+                            className="ml-1 hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTag(tag);
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -234,6 +335,28 @@ const Vocabulary = () => {
                                 rows={3}
                               />
                             </div>
+                            <div>
+                              <label className="text-sm font-medium mb-1 block">Tags</label>
+                              <div className="flex flex-wrap gap-2">
+                                {data.tags.map((tag) => (
+                                  <Badge
+                                    key={tag}
+                                    className="cursor-pointer"
+                                    variant={editForm.tags.includes(tag) ? "default" : "outline"}
+                                    onClick={() => {
+                                      setEditForm(prev => ({
+                                        ...prev,
+                                        tags: prev.tags.includes(tag)
+                                          ? prev.tags.filter(t => t !== tag)
+                                          : [...prev.tags, tag]
+                                      }));
+                                    }}
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         ) : (
                           <div className="grid gap-2 text-sm">
@@ -255,6 +378,15 @@ const Vocabulary = () => {
                               <div>
                                 <span className="font-medium text-muted-foreground">Notes: </span>
                                 <span className="text-foreground">{vocab.notes}</span>
+                              </div>
+                            )}
+                            {vocab.tags && vocab.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {vocab.tags.map(tag => (
+                                  <Badge key={tag} variant="secondary">
+                                    {tag}
+                                  </Badge>
+                                ))}
                               </div>
                             )}
                             <div className="text-xs text-muted-foreground mt-2">
