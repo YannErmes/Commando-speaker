@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAppData } from "@/hooks/useAppData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,6 +46,116 @@ const Flashcards = () => {
   const [acceptedFields, setAcceptedFields] = useState<{ translation: boolean; ipa: boolean; notes: boolean; examples: boolean }>({ translation: false, ipa: false, notes: false, examples: false });
 
   const PAGE_SIZE = 6;
+
+  // Persistent session timer (stored in localStorage so it keeps running across sections)
+  const TIMER_BASE_KEY = 'fln:sessionTimerBase'; // seconds
+  const TIMER_LAST_START_KEY = 'fln:sessionTimerLastStart'; // ms timestamp or null
+
+  const [elapsed, setElapsed] = useState<number>(() => {
+    try {
+      const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+      const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+      if (last) {
+        const extra = Math.floor((Date.now() - last) / 1000);
+        return base + extra;
+      }
+      return base;
+    } catch {
+      return 0;
+    }
+  });
+
+  const intervalRef = useRef<number | null>(null);
+
+  const formatTime = (s: number) => {
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+  };
+
+  const startTick = () => {
+    if (intervalRef.current) {
+      window.clearInterval(intervalRef.current);
+    }
+    try {
+      const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+      const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+      const current = last ? base + Math.floor((Date.now() - last) / 1000) : base;
+      setElapsed(current);
+    } catch {}
+    intervalRef.current = window.setInterval(() => {
+      try {
+        const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+        const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+        const current = last ? base + Math.floor((Date.now() - last) / 1000) : base;
+        setElapsed(current);
+      } catch {}
+    }, 1000) as unknown as number;
+  };
+
+  const stopTick = () => {
+    if (intervalRef.current) {
+      window.clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const startTimer = () => {
+    try {
+      if (!localStorage.getItem(TIMER_LAST_START_KEY)) {
+        localStorage.setItem(TIMER_LAST_START_KEY, String(Date.now()));
+      }
+    } catch {}
+    startTick();
+  };
+
+  const pauseTimer = () => {
+    try {
+      const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+      const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+      if (last) {
+        const extra = Math.floor((Date.now() - last) / 1000);
+        localStorage.setItem(TIMER_BASE_KEY, String(base + extra));
+      }
+      localStorage.removeItem(TIMER_LAST_START_KEY);
+    } catch {}
+    stopTick();
+    try {
+      const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+      setElapsed(base);
+    } catch {}
+  };
+
+  const resetTimer = () => {
+    try {
+      localStorage.removeItem(TIMER_LAST_START_KEY);
+      localStorage.setItem(TIMER_BASE_KEY, '0');
+    } catch {}
+    stopTick();
+    setElapsed(0);
+  };
+
+  useEffect(() => {
+    if (localStorage.getItem(TIMER_LAST_START_KEY)) startTick();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === TIMER_BASE_KEY || e.key === TIMER_LAST_START_KEY) {
+        try {
+          const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+          const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+          const current = last ? base + Math.floor((Date.now() - last) / 1000) : base;
+          setElapsed(current);
+          if (last) startTick(); else stopTick();
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      stopTick();
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   // Filter vocab by selected tags in study mode (OR semantics: show if vocab has ANY selected tag)
   const filteredVocab = isStudyMode && selectedTags.length > 0
@@ -252,6 +362,16 @@ const Flashcards = () => {
                   ? `Studying ${filteredVocab.length} words with selected tags`
                   : `Practice with ${data.vocab.length} vocabulary items`}
               </p>
+              {/* Session timer */}
+              <div className="mt-3 flex items-center gap-2">
+                <div className="font-mono bg-muted/10 px-3 py-1 rounded text-sm">{formatTime(elapsed)}</div>
+                <Button size="sm" onClick={() => {
+                  if (localStorage.getItem('fln:sessionTimerLastStart')) pauseTimer(); else startTimer();
+                }}>
+                  {localStorage.getItem('fln:sessionTimerLastStart') ? 'Pause' : 'Start'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={resetTimer}>Reset</Button>
+              </div>
             </div>
 
             <div className="flex gap-2">

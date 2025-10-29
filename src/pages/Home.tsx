@@ -1,4 +1,5 @@
 import { useAppData } from "@/hooks/useAppData";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Book, BookA, Languages, TrendingUp, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -6,6 +7,130 @@ import { Button } from "@/components/ui/button";
 
 const Home = () => {
   const { data } = useAppData();
+
+  // Persistent session timer stored in localStorage so it keeps running across sections
+  const TIMER_BASE_KEY = 'fln:sessionTimerBase'; // seconds
+  const TIMER_LAST_START_KEY = 'fln:sessionTimerLastStart'; // ms timestamp or null
+
+  const [elapsed, setElapsed] = useState<number>(() => {
+    try {
+      const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+      const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+      if (last) {
+        const extra = Math.floor((Date.now() - last) / 1000);
+        return base + extra;
+      }
+      return base;
+    } catch {
+      return 0;
+    }
+  });
+
+  const intervalRef = useRef<number | null>(null);
+
+  const isRunning = () => {
+    return !!(localStorage.getItem(TIMER_LAST_START_KEY));
+  };
+
+  const formatTime = (s: number) => {
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+  };
+
+  const startTimer = () => {
+    try {
+      if (!localStorage.getItem(TIMER_LAST_START_KEY)) {
+        localStorage.setItem(TIMER_LAST_START_KEY, String(Date.now()));
+      }
+    } catch {}
+    // ensure UI updates
+    startTick();
+  };
+
+  const pauseTimer = () => {
+    try {
+      const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+      const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+      if (last) {
+        const extra = Math.floor((Date.now() - last) / 1000);
+        localStorage.setItem(TIMER_BASE_KEY, String(base + extra));
+      }
+      localStorage.removeItem(TIMER_LAST_START_KEY);
+    } catch {}
+    stopTick();
+    // update displayed elapsed from storage
+    try {
+      const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+      setElapsed(base);
+    } catch {
+      // ignore
+    }
+  };
+
+  const resetTimer = () => {
+    try {
+      localStorage.removeItem(TIMER_LAST_START_KEY);
+      localStorage.setItem(TIMER_BASE_KEY, '0');
+    } catch {}
+    stopTick();
+    setElapsed(0);
+  };
+
+  const startTick = () => {
+    // clear any existing tick
+    stopTick();
+    // fast update first
+    try {
+      const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+      const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+      const current = last ? base + Math.floor((Date.now() - last) / 1000) : base;
+      setElapsed(current);
+    } catch {
+      // ignore
+    }
+    intervalRef.current = window.setInterval(() => {
+      try {
+        const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+        const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+        const current = last ? base + Math.floor((Date.now() - last) / 1000) : base;
+        setElapsed(current);
+      } catch {
+        // ignore
+      }
+    }, 1000) as unknown as number;
+  };
+
+  const stopTick = () => {
+    if (intervalRef.current) {
+      window.clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    // Start ticking if timer was running when component mounts
+    if (isRunning()) startTick();
+    // listen for storage events so multiple tabs update the display
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === TIMER_BASE_KEY || e.key === TIMER_LAST_START_KEY) {
+        try {
+          const base = parseInt(localStorage.getItem(TIMER_BASE_KEY) || '0', 10) || 0;
+          const last = parseInt(localStorage.getItem(TIMER_LAST_START_KEY) || '0', 10) || 0;
+          const current = last ? base + Math.floor((Date.now() - last) / 1000) : base;
+          setElapsed(current);
+          if (last) startTick(); else stopTick();
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      stopTick();
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   const stats = [
     {
@@ -55,6 +180,20 @@ const Home = () => {
             <p className="text-xl text-muted-foreground">
               Your personal language learning companion
             </p>
+            {/* Persistent session timer */}
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <div className="font-mono bg-muted/10 px-3 py-1 rounded text-sm">{formatTime(elapsed)}</div>
+              <Button size="sm" onClick={() => {
+                if (localStorage.getItem('fln:sessionTimerLastStart')) {
+                  pauseTimer();
+                } else {
+                  startTimer();
+                }
+              }}>
+                {localStorage.getItem('fln:sessionTimerLastStart') ? 'Pause' : 'Start'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={resetTimer}>Reset</Button>
+            </div>
           </div>
 
           <div className="grid gap-6 md:grid-cols-3 mb-12">
