@@ -230,6 +230,193 @@ const Flashcards = () => {
   const clearStudyBox = () => {
     setStudyBox([]);
     setStudiedBox([]);
+    try {
+      localStorage.removeItem('fln:studyBox');
+      localStorage.removeItem('fln:studiedBox');
+    } catch {}
+  };
+
+  // Persist study box to localStorage so it survives reloads
+  useEffect(() => {
+    try {
+      localStorage.setItem('fln:studyBox', JSON.stringify(studyBox || []));
+    } catch {}
+  }, [studyBox]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('fln:studiedBox', JSON.stringify(studiedBox || []));
+    } catch {}
+  }, [studiedBox]);
+
+  // Load persisted study box on mount
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('fln:studyBox') || '[]');
+      if (Array.isArray(saved)) setStudyBox(saved);
+    } catch {}
+    try {
+      const saved2 = JSON.parse(localStorage.getItem('fln:studiedBox') || '[]');
+      if (Array.isArray(saved2)) setStudiedBox(saved2);
+    } catch {}
+  }, []);
+
+  const downloadStudyBoxAsHtml = () => {
+    try {
+      const words = studyBox.map(id => data.vocab.find(v => v.id === id)?.text).filter(Boolean) as string[];
+      if (!words.length) {
+        toast({ title: 'Empty', description: 'Study box is empty.' });
+        return;
+      }
+
+      // Create an HTML document with embedded styles and JavaScript
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Box - ${new Date().toLocaleDateString()}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            background: #f9fafb;
+            color: #111827;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #111827;
+        }
+        .word-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin: 1rem 0;
+        }
+        .word {
+            background: white;
+            border: 1px solid #e5e7eb;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            text-align: center;
+        }
+        .word:hover {
+            border-color: #d1d5db;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .word.used {
+            background: #fee2e2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+        .info {
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin: 2rem 0;
+            padding: 1rem;
+            background: white;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+        }
+        .stats {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Study Box - ${new Date().toLocaleDateString()}</h1>
+    <div class="word-grid">
+        ${words.map(word => `<div class="word" onclick="toggleWord(this)" data-word="${word.replace(/"/g, '&quot;')}">${word}</div>`).join('\n        ')}
+    </div>
+    <div class="stats">
+        Words remaining: <span id="remaining">${words.length}</span>
+        <br>
+        Words used: <span id="used">0</span>
+    </div>
+    <div class="info">
+        Click/tap a word to mark it as used. Your progress is saved automatically in this file's URL.
+        <br>
+        Bookmark this page to keep your progress.
+    </div>
+    <script>
+        // Load used words from URL hash
+        const loadUsedWords = () => {
+            try {
+                const hash = window.location.hash.slice(1);
+                return hash ? JSON.parse(decodeURIComponent(hash)) : [];
+            } catch (e) {
+                return [];
+            }
+        };
+
+        // Save used words to URL hash
+        const saveUsedWords = (words) => {
+            window.location.hash = encodeURIComponent(JSON.stringify(words));
+        };
+
+        // Initialize from URL hash
+        const usedWords = loadUsedWords();
+        usedWords.forEach(word => {
+            const el = document.querySelector(\`.word[data-word="\${word}"]\`);
+            if (el) el.classList.add('used');
+        });
+
+        // Update stats
+        const updateStats = () => {
+            const total = document.querySelectorAll('.word').length;
+            const used = document.querySelectorAll('.word.used').length;
+            document.getElementById('remaining').textContent = total - used;
+            document.getElementById('used').textContent = used;
+        };
+
+        // Toggle word used state
+        function toggleWord(el) {
+            const word = el.dataset.word;
+            const isUsed = el.classList.toggle('used');
+            
+            // Update used words list
+            const usedWords = loadUsedWords();
+            const newUsedWords = isUsed
+                ? [...usedWords, word]
+                : usedWords.filter(w => w !== word);
+            
+            saveUsedWords(newUsedWords);
+            updateStats();
+        }
+
+        // Initial stats update
+        updateStats();
+    </script>
+</body>
+</html>`;
+
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `study-box-${new Date().toLocaleDateString().replace(/\//g, '-')}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Downloaded',
+        description: 'Open the HTML file in your browser. Your progress will be saved in the URL when you click words.',
+      });
+    } catch (e) {
+      console.error('Download error', e);
+      toast({ title: 'Error', description: 'Failed to download study box as HTML.', variant: 'destructive' });
+    }
   };
 
   // Toggle an item between boxes (click behavior in the dialog)
@@ -488,6 +675,9 @@ const Flashcards = () => {
                     </div>
 
                     <div className="flex justify-end gap-2 mt-6">
+                      <Button variant="outline" onClick={downloadStudyBoxAsHtml}>
+                        Download HTML
+                      </Button>
                       <Button variant="destructive" onClick={() => clearStudyBox()}>Clear</Button>
                       <Button onClick={() => setShowStudyBox(false)}>Close</Button>
                     </div>

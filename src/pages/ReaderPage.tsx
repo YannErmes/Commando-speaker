@@ -33,15 +33,10 @@ const ReaderPage: React.FC = () => {
     );
   }
 
-  // If a video URL is attached, open it on YouTube in a new tab instead of embedding a player.
+  // Helper to open video in YouTube when the play button is clicked
   const openVideoInYouTube = () => {
     if (!textItem.videoUrl) return;
-    try {
-      window.open(textItem.videoUrl, '_blank', 'noopener,noreferrer');
-    } catch (e) {
-      // fallback
-      window.open(textItem.videoUrl, '_blank');
-    }
+    window.open(textItem.videoUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleTextSelection = () => {
@@ -330,8 +325,15 @@ const ReaderPage: React.FC = () => {
                 />
               </div>
 
+              {/* Video play button - only shown if video URL exists */}
               {textItem.videoUrl && (
-                <Button size="sm" variant="ghost" onClick={openVideoInYouTube} title="Open video on YouTube" className="h-8 w-8 p-0">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={openVideoInYouTube} 
+                  title="Watch video on YouTube" 
+                  className="h-8 w-8 p-0 hover:bg-accent"
+                >
                   <Play className="h-4 w-4" />
                 </Button>
               )}
