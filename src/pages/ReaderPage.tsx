@@ -33,110 +33,16 @@ const ReaderPage: React.FC = () => {
     );
   }
 
-  // Extract YouTube video ID from common YouTube URL forms
-  const getYouTubeEmbedUrl = (url?: string | null) => {
-    if (!url) return null;
+  // If a video URL is attached, open it on YouTube in a new tab instead of embedding a player.
+  const openVideoInYouTube = () => {
+    if (!textItem.videoUrl) return;
     try {
-      const u = new URL(url);
-      const host = u.hostname.toLowerCase();
-      // youtu.be short links
-      if (host === 'youtu.be') {
-        const id = u.pathname.slice(1);
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-      // youtube.com watch?v= or embed
-      if (host.includes('youtube.com')) {
-        const v = u.searchParams.get('v');
-        if (v) return `https://www.youtube.com/embed/${v}`;
-        // maybe already an embed URL
-        const parts = u.pathname.split('/').filter(Boolean);
-        const idx = parts.indexOf('embed');
-        if (idx !== -1 && parts[idx + 1]) return `https://www.youtube.com/embed/${parts[idx + 1]}`;
-      }
+      window.open(textItem.videoUrl, '_blank', 'noopener,noreferrer');
     } catch (e) {
-      // ignore malformed URLs
+      // fallback
+      window.open(textItem.videoUrl, '_blank');
     }
-    return null;
   };
-  const embedUrl = getYouTubeEmbedUrl(textItem.videoUrl as any);
-
-  // --- YouTube player + sync support ---
-  const playerContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const ytPlayerRef = React.useRef<any>(null);
-  const [videoDuration, setVideoDuration] = React.useState<number>(0);
-
-  const getYouTubeVideoId = (url?: string | null) => {
-    if (!url) return null;
-    try {
-      const u = new URL(url);
-      const host = u.hostname.toLowerCase();
-      if (host === 'youtu.be') return u.pathname.slice(1) || null;
-      if (host.includes('youtube.com')) {
-        const v = u.searchParams.get('v');
-        if (v) return v;
-        const parts = u.pathname.split('/').filter(Boolean);
-        const idx = parts.indexOf('embed');
-        if (idx !== -1 && parts[idx + 1]) return parts[idx + 1];
-      }
-    } catch (e) {}
-    return null;
-  };
-
-  // Note: video-based transcript highlighting removed; keep player only.
-
-  React.useEffect(() => {
-    if (!embedUrl) return;
-
-    const videoId = getYouTubeVideoId(textItem.videoUrl as any);
-    if (!videoId) return;
-
-    const initPlayer = () => {
-      try {
-        const YT = (window as any).YT;
-        if (!YT || !playerContainerRef.current) return;
-        ytPlayerRef.current = new YT.Player(playerContainerRef.current, {
-          videoId,
-          playerVars: { enablejsapi: 1, origin: window.location.origin },
-          events: {
-            onReady: (e: any) => {
-              try {
-                const dur = e.target.getDuration();
-                setVideoDuration(dur || 0);
-              } catch (err) {}
-            },
-            onStateChange: (_e: any) => {
-              // no-op: we don't auto-sync transcript to video playback
-            }
-          }
-        });
-      } catch (e) {
-        // ignore init errors
-      }
-    };
-
-    if ((window as any).YT && (window as any).YT.Player) {
-      initPlayer();
-    } else {
-      // load the IFrame API if not present
-      if (!(window as any).onYouTubeIframeAPIReady) {
-        (window as any).onYouTubeIframeAPIReady = () => initPlayer();
-      }
-      if (!document.getElementById('youtube-iframe-api')) {
-        const s = document.createElement('script');
-        s.id = 'youtube-iframe-api';
-        s.src = 'https://www.youtube.com/iframe_api';
-        document.body.appendChild(s);
-      }
-    }
-
-    return () => {
-      try {
-        ytPlayerRef.current?.destroy?.();
-      } catch (e) {}
-      ytPlayerRef.current = null;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [embedUrl, textItem.id]);
 
   const handleTextSelection = () => {
     const selection = window.getSelection();
@@ -424,23 +330,15 @@ const ReaderPage: React.FC = () => {
                 />
               </div>
 
+              {textItem.videoUrl && (
+                <Button size="sm" variant="ghost" onClick={openVideoInYouTube} title="Open video on YouTube" className="h-8 w-8 p-0">
+                  <Play className="h-4 w-4" />
+                </Button>
+              )}
               <Button size="sm" onClick={() => navigate(-1)}>Back</Button>
             </div>
           </div>
 
-          {/* Video centered under header */}
-          <div className="flex justify-center mb-4">
-            <div className="w-full max-w-3xl px-4">
-              <div className="rounded overflow-hidden bg-black flex justify-center items-center" style={{ height: 240 }}>
-                {/* Player container (YT IFrame API mounts here) */}
-                {embedUrl ? (
-                  <div ref={playerContainerRef} className="w-full h-full" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">No video attached</div>
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* Content row: text (scrollable) and vocabulary (scrollable) */}
           <div className="grid lg:grid-cols-[1fr_350px] gap-6" style={{ height: 'calc(100vh - 360px)' }}>
