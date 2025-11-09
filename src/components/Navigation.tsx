@@ -13,7 +13,7 @@ const Navigation = () => {
     { to: "/flashcards", label: "Flashcards", icon: StickyNote },
     { to: "/tongue-twisters", label: "Tongue Twisters", icon: Languages },
     { to: "/pdf-reader", label: "PDF Reader", icon: FileText },
-    { to: "/goals", label: "Goals", icon: FileText },
+  { to: "/subjects", label: "Subjects", icon: FileText },
     { to: "/settings", label: "Settings", icon: Settings },
   ];
 

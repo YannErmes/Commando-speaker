@@ -11,7 +11,7 @@ import Vocabulary from "./pages/Vocabulary";
 import TongueTwisters from "./pages/TongueTwisters";
 import PDFReader from "./pages/PDFReader";
 import Settings from "./pages/Settings";
-import Goals from "./pages/Goals";
+import Subjects from "./pages/Subjects";
 import Flashcards from "./pages/Flashcards";
 import NotFound from "./pages/NotFound";
 
@@ -31,7 +31,7 @@ const App = () => (
           <Route path="/vocabulary" element={<Vocabulary />} />
           <Route path="/tongue-twisters" element={<TongueTwisters />} />
           <Route path="/pdf-reader" element={<PDFReader />} />
-          <Route path="/goals" element={<Goals />} />
+          <Route path="/subjects" element={<Subjects />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/flashcards" element={<Flashcards />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
