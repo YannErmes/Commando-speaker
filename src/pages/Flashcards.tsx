@@ -158,6 +158,7 @@ const Flashcards = () => {
   }, []);
 
   // Filter vocab by selected tags in study mode (OR semantics: show if vocab has ANY selected tag)
+  // When no tags are selected (selectedTags is empty), show all words
   const filteredVocab = isStudyMode && selectedTags.length > 0
     ? data.vocab.filter(v => v.tags?.some(tag => selectedTags.includes(tag)))
     : data.vocab;
@@ -573,27 +574,33 @@ const Flashcards = () => {
                     <DialogTitle>Start Study Session</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 pt-4">
-                    <p className="text-sm text-muted-foreground">Select tags to focus your study session on specific vocabulary.</p>
+                    <p className="text-sm text-muted-foreground">Select tags to focus your study session on specific vocabulary, or choose "All Words" to study everything.</p>
                     <div className="flex flex-wrap gap-2">
-                      {data.tags.map(tag => (
-                        <Button
-                          key={tag}
-                          variant={selectedTags.includes(tag) ? "secondary" : "outline"}
-                          size="sm"
-                          onClick={() => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
-                        >
-                          {tag}
-                        </Button>
-                      ))}
+                      <Button
+                        variant={selectedTags.length === 0 ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedTags([])}
+                      >
+                        All Words ({data.vocab.length})
+                      </Button>
+                      {data.tags.map(tag => {
+                        const wordsWithTag = data.vocab.filter(v => v.tags?.includes(tag)).length;
+                        return (
+                          <Button
+                            key={tag}
+                            variant={selectedTags.includes(tag) ? "secondary" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                          >
+                            {tag} ({wordsWithTag})
+                          </Button>
+                        );
+                      })}
                     </div>
                     <div className="flex gap-2">
                       <Button
                         className="flex-1"
                         onClick={() => {
-                          if (selectedTags.length === 0) {
-                            toast({ title: 'Select tags', description: 'Please select at least one tag to start studying.', variant: 'destructive' });
-                            return;
-                          }
                           setIsStudyMode(true);
                           setStudyDialogOpen(false);
                           setCurrentSet(0);
