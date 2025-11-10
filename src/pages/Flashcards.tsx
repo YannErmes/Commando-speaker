@@ -22,10 +22,17 @@ const Flashcards = () => {
   const [studyDialogOpen, setStudyDialogOpen] = useState(false);
   const [isStudyMode, setIsStudyMode] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  // Temporary study box state (visual only, not persisted)
-  const [studyBox, setStudyBox] = useState<string[]>([]); // ids added to box
-  const [studiedBox, setStudiedBox] = useState<string[]>([]); // ids moved to 'used' (green)
+  // Study boxes state
+  const [studyBoxes, setStudyBoxes] = useState<{ 
+    id: string; 
+    name: string; 
+    words: string[]; 
+    studied: string[];
+  }[]>([]);
   const [showStudyBox, setShowStudyBox] = useState(false);
+  const [showCreateBoxDialog, setShowCreateBoxDialog] = useState(false);
+  const [newBoxName, setNewBoxName] = useState("");
+  const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
   const [editingVocab, setEditingVocab] = useState<string | null>(null);
   const [newVocab, setNewVocab] = useState({
     text: "",
@@ -207,64 +214,103 @@ const Flashcards = () => {
   };
 
   // Study box helpers (visual only)
-  const addToStudyBox = (id: string) => {
-    setStudyBox((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  const createStudyBox = () => {
+    if (!newBoxName.trim()) {
+      toast({ title: 'Error', description: 'Please enter a name for the study box' });
+      return;
+    }
+    const id = Date.now().toString();
+    setStudyBoxes(prev => [...prev, {
+      id,
+      name: newBoxName.trim(),
+      words: [],
+      studied: []
+    }]);
+    setNewBoxName("");
+    setShowCreateBoxDialog(false);
+    toast({ title: 'Created', description: `Study box "${newBoxName}" created` });
+  };
+
+  const addToStudyBox = (wordId: string, boxId: string) => {
+    setStudyBoxes(prev => prev.map(box => 
+      box.id === boxId
+        ? { ...box, words: box.words.includes(wordId) ? box.words : [...box.words, wordId] }
+        : box
+    ));
     toast({ title: 'Added', description: 'Word added to study box' });
   };
 
-  const removeFromStudyBox = (id: string) => {
-    setStudyBox((prev) => prev.filter(x => x !== id));
-    setStudiedBox((prev) => prev.filter(x => x !== id));
+  const removeFromStudyBox = (wordId: string, boxId: string) => {
+    setStudyBoxes(prev => prev.map(box => 
+      box.id === boxId
+        ? {
+            ...box,
+            words: box.words.filter(x => x !== wordId),
+            studied: box.studied.filter(x => x !== wordId)
+          }
+        : box
+    ));
   };
 
-  const markAsStudied = (id: string) => {
-    // move id to studiedBox if in studyBox
-    setStudyBox((prev) => prev.filter(x => x !== id));
-    setStudiedBox((prev) => prev.includes(id) ? prev : [...prev, id]);
+  const markAsStudied = (wordId: string, boxId: string) => {
+    setStudyBoxes(prev => prev.map(box => 
+      box.id === boxId
+        ? {
+            ...box,
+            words: box.words.filter(x => x !== wordId),
+            studied: box.studied.includes(wordId) ? box.studied : [...box.studied, wordId]
+          }
+        : box
+    ));
   };
 
-  const unmarkStudied = (id: string) => {
-    setStudiedBox((prev) => prev.filter(x => x !== id));
-    setStudyBox((prev) => prev.includes(id) ? prev : [...prev, id]);
+  const unmarkStudied = (wordId: string, boxId: string) => {
+    setStudyBoxes(prev => prev.map(box => 
+      box.id === boxId
+        ? {
+            ...box,
+            studied: box.studied.filter(x => x !== wordId),
+            words: box.words.includes(wordId) ? box.words : [...box.words, wordId]
+          }
+        : box
+    ));
   };
 
-  const clearStudyBox = () => {
-    setStudyBox([]);
-    setStudiedBox([]);
-    try {
-      localStorage.removeItem('fln:studyBox');
-      localStorage.removeItem('fln:studiedBox');
-    } catch {}
+  const deleteStudyBox = (boxId: string) => {
+    setStudyBoxes(prev => prev.filter(box => box.id !== boxId));
+    toast({ title: 'Deleted', description: 'Study box removed' });
   };
 
-  // Persist study box to localStorage so it survives reloads
+  const clearStudyBox = (boxId: string) => {
+    setStudyBoxes(prev => prev.map(box => 
+      box.id === boxId
+        ? { ...box, words: [], studied: [] }
+        : box
+    ));
+  };
+
+  // Persist study boxes to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('fln:studyBox', JSON.stringify(studyBox || []));
+      localStorage.setItem('fln:studyBoxes', JSON.stringify(studyBoxes));
     } catch {}
-  }, [studyBox]);
+  }, [studyBoxes]);
 
+  // Load persisted study boxes on mount
   useEffect(() => {
     try {
-      localStorage.setItem('fln:studiedBox', JSON.stringify(studiedBox || []));
-    } catch {}
-  }, [studiedBox]);
-
-  // Load persisted study box on mount
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('fln:studyBox') || '[]');
-      if (Array.isArray(saved)) setStudyBox(saved);
-    } catch {}
-    try {
-      const saved2 = JSON.parse(localStorage.getItem('fln:studiedBox') || '[]');
-      if (Array.isArray(saved2)) setStudiedBox(saved2);
+      const saved = JSON.parse(localStorage.getItem('fln:studyBoxes') || '[]');
+      if (Array.isArray(saved)) {
+        setStudyBoxes(saved);
+      }
     } catch {}
   }, []);
 
-  const downloadStudyBoxAsHtml = () => {
+  const downloadStudyBoxAsHtml = (boxId: string) => {
     try {
-      const words = studyBox.map(id => data.vocab.find(v => v.id === id)?.text).filter(Boolean) as string[];
+      const box = studyBoxes.find(b => b.id === boxId);
+      if (!box) return;
+      const words = box.words.map(id => data.vocab.find(v => v.id === id)?.text).filter(Boolean) as string[];
       if (!words.length) {
         toast({ title: 'Empty', description: 'Study box is empty.' });
         return;
@@ -276,7 +322,7 @@ const Flashcards = () => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Study Box - ${new Date().toLocaleDateString()}</title>
+    <title>Study Box: ${box.name} - ${new Date().toLocaleDateString()}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -334,7 +380,7 @@ const Flashcards = () => {
     </style>
 </head>
 <body>
-    <h1>Study Box - ${new Date().toLocaleDateString()}</h1>
+    <h1>Study Box: ${box.name} - ${new Date().toLocaleDateString()}</h1>
     <div class="word-grid">
         ${words.map(word => `<div class="word" onclick="toggleWord(this)" data-word="${word.replace(/"/g, '&quot;')}">${word}</div>`).join('\n        ')}
     </div>
@@ -619,74 +665,120 @@ const Flashcards = () => {
                 </DialogContent>
               </Dialog>
 
-              {/* Study Box dialog */}
+              {/* Study Boxes dialog */}
               <Dialog open={showStudyBox} onOpenChange={setShowStudyBox}>
                 <DialogTrigger asChild>
-                  <Button variant="outline">Study Box</Button>
+                  <Button variant="outline">Study Boxes</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl w-[92vw] p-6">
                   <DialogHeader>
-                    <DialogTitle>Study Box</DialogTitle>
+                    <DialogTitle>Study Boxes</DialogTitle>
                   </DialogHeader>
                   <div className="pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 rounded-2xl border bg-red-50 shadow-sm">
-                        <h4 className="font-semibold mb-3 text-red-900 text-lg">To Use</h4>
-                        {studyBox.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No items added yet — click items on the left to add them here.</p>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {studyBox.map(id => {
-                              const v = data.vocab.find(x => x.id === id);
-                              if (!v) return null;
-                              return (
-                                <button
-                                  key={id}
-                                  onClick={() => toggleStudyItem(id)}
-                                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-red-100 text-red-900 text-sm hover:shadow-md transition"
-                                  title="Click to mark used"
-                                >
-                                  <span className="truncate max-w-[10rem]">{v.text}</span>
-                                  <span className="text-[10px] text-red-700">→</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                    {studyBoxes.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground mb-4">No study boxes created yet</p>
+                        <Button onClick={() => setShowCreateBoxDialog(true)}>Create Study Box</Button>
                       </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between mb-4">
+                          <Button variant="outline" onClick={() => setShowCreateBoxDialog(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            New Study Box
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-6">
+                          {studyBoxes.map(box => (
+                            <div key={box.id} className="border rounded-lg p-4">
+                              <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold">{box.name}</h3>
+                                <Button variant="destructive" size="sm" onClick={() => deleteStudyBox(box.id)}>Delete</Button>
+                              </div>
 
-                      <div className="p-4 rounded-2xl border bg-green-50 shadow-sm">
-                        <h4 className="font-semibold mb-3 text-green-900 text-lg">Used</h4>
-                        {studiedBox.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No items used yet — click a chip in the left column to move it here.</p>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {studiedBox.map(id => {
-                              const v = data.vocab.find(x => x.id === id);
-                              if (!v) return null;
-                              return (
-                                <button
-                                  key={id}
-                                  onClick={() => toggleStudyItem(id)}
-                                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-green-100 text-green-900 text-sm hover:shadow-md transition"
-                                  title="Click to move back"
-                                >
-                                  <span className="truncate max-w-[10rem]">{v.text}</span>
-                                  <span className="text-[10px] text-green-700">↶</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-4 rounded-2xl border bg-red-50 shadow-sm">
+                                  <h4 className="font-semibold mb-3 text-red-900 text-lg">To Use</h4>
+                                  {box.words.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">No items added yet</p>
+                                  ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                      {box.words.map(id => {
+                                        const v = data.vocab.find(x => x.id === id);
+                                        if (!v) return null;
+                                        return (
+                                          <button
+                                            key={id}
+                                            onClick={() => markAsStudied(id, box.id)}
+                                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-red-100 text-red-900 text-sm hover:shadow-md transition"
+                                            title="Click to mark used"
+                                          >
+                                            <span className="truncate max-w-[10rem]">{v.text}</span>
+                                            <span className="text-[10px] text-red-700">→</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
 
-                    <div className="flex justify-end gap-2 mt-6">
-                      <Button variant="outline" onClick={downloadStudyBoxAsHtml}>
-                        Download HTML
-                      </Button>
-                      <Button variant="destructive" onClick={() => clearStudyBox()}>Clear</Button>
-                      <Button onClick={() => setShowStudyBox(false)}>Close</Button>
+                                <div className="p-4 rounded-2xl border bg-green-50 shadow-sm">
+                                  <h4 className="font-semibold mb-3 text-green-900 text-lg">Used</h4>
+                                  {box.studied.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">No items used yet</p>
+                                  ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                      {box.studied.map(id => {
+                                        const v = data.vocab.find(x => x.id === id);
+                                        if (!v) return null;
+                                        return (
+                                          <button
+                                            key={id}
+                                            onClick={() => unmarkStudied(id, box.id)}
+                                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-green-100 text-green-900 text-sm hover:shadow-md transition"
+                                            title="Click to move back"
+                                          >
+                                            <span className="truncate max-w-[10rem]">{v.text}</span>
+                                            <span className="text-[10px] text-green-700">↶</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex justify-end gap-2 mt-4">
+                                <Button variant="outline" onClick={() => downloadStudyBoxAsHtml(box.id)}>
+                                  Download HTML
+                                </Button>
+                                <Button variant="destructive" onClick={() => clearStudyBox(box.id)}>Clear</Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Create Study Box Dialog */}
+              <Dialog open={showCreateBoxDialog} onOpenChange={setShowCreateBoxDialog}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Create Study Box</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <Input
+                      placeholder="Enter study box name"
+                      value={newBoxName}
+                      onChange={(e) => setNewBoxName(e.target.value)}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" onClick={() => setShowCreateBoxDialog(false)}>Cancel</Button>
+                      <Button onClick={createStudyBox}>Create</Button>
                     </div>
                   </div>
                 </DialogContent>
@@ -811,10 +903,42 @@ const Flashcards = () => {
                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); handleEditVocab(vocab.id); }}>
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      {isStudyMode && (
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); addToStudyBox(vocab.id); }}>
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                      {isStudyMode && studyBoxes.length > 0 && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Add to Study Box</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-2 pt-4">
+                              {studyBoxes.map(box => (
+                                <Button
+                                  key={box.id}
+                                  variant="outline"
+                                  className="w-full justify-start text-left"
+                                  onClick={() => {
+                                    addToStudyBox(vocab.id, box.id);
+                                    document.querySelector('button[aria-label="Close"]')?.click();
+                                  }}
+                                >
+                                  {box.name}
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    ({box.words.length} words)
+                                  </span>
+                                </Button>
+                              ))}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       )}
                     </div>
 
